@@ -1,0 +1,406 @@
+* TODO 怎么编译程序。现在程序不是正常的。
+** DONE Router在哪是什么意思
+** TODO 看看Python
+** TODO 看看怎么把emacs 的东西直接提交给github
+** DONE LIB源码
+** DONE ant学习
+   1）ant命令
+   * project 节点元素
+   ** project元素是Ant 构建文件的根元素，Ant 构建文件至少包含一个project 元素
+   ** name属性：用于指定project元素的名称
+   ** default属性：用于指定project默认执行时所执行的target的名称
+   ** basedir属性：用于指定基路径的位置。该属性没有指定是，使用Ant的构建文件的附目录作为基准目录。
+     <?xml version="1.0" ?>
+     <project name="ant-project" default="print-dir" basedir=".">
+        <target name="print-dir">
+	   <echo message="The base dir is : ${basedir}"/>
+	</target>
+     </project>
+   * target 节点元素
+   ** target为ant 的基本执行单元或任务，它可以包含一个或多个具体的单元/任务。多个target可以存在相互依赖关系。它有如下属性：
+   ** name 属性：指定target元素的名称，这个属性在一个project元素中是唯一的。我们可以通过指定target元素的名称来指定某个target。
+   ** depends 属性：用于描述target之间的依赖关系，若与多个target存在依赖关系时，需要以","间隔。ant会依照depends属性中target出现的顺序执行每个target，被依赖的target会先执行。
+   ** if属性：用于验证指定的属性是否存在，若不存在target将不会执行。
+   ** unless属性：该属性的功能与if属性的功能正好相反，他也用于验证指定的属性是否存在，若不存在，所在的target将会被执行。
+   ** description属性：该属性是target功能的简短描述和说明。
+      <?xml version="1.0"?>
+      <project name="version" default="print">
+         <target name="version" if="ant.java.version">
+	    <echo message="Java Version: ${ant.java.version}"/>
+	 </target>
+	 <target name="print" depends="version" unless="docs">
+	    <description>
+	       a depend example!
+	    </description>
+	    <echo message="The base dir is:${basedir}"/>
+	 </target>
+      </project>
+   * property 属性节点
+   ** property元素可以看做参量或者参数的定义，project的属性可以通过property元素来设定，也可以在Ant 之外是定。若要在外部引入某文件，例如build.properties文件，可以通过如下内容将其引用：
+      <property file="build.properties"/>
+   ** property元素可以作task的属性值。在task中是通过将属性名放在${属性名}之间，并放在task属性的位置来实现的。
+      Ant提供了一些内置的属性，它能得到的系统属性的列表与Java文档中System.getProperties()方法得到的属性一致。
+   ** basedir：project基目录的绝对路径；
+   ** ant.file：buildfile的绝对路径；
+   ** ant.version：ant的版本信息；
+   ** ant.project.name：当前指定的project的名字。
+   ** ant.java.version：ant检测到的JDK版本。
+      <projcet name="ant-project" default="example">
+         <property name="name" value="jojo"/>
+	 <property name="age" value="25"/>
+	 <target name="example">
+	    <echo message="name:${name},age:${age}"/>
+	 </target>
+      </project>
+   * copy命令
+   ** copy主要用来对文件和目录的复制功能。
+   ***复制单个文件：
+      <copy file="old.txt" tofile="new.txt"/>
+   ***对文件目录进行复制：
+      <copy todir="../dest_dir"/>
+         <fileset dir="src_dir"/>
+      </copy>
+   ***将文件复制到另外的目录：
+      <copy file="src.txt" todir="c:/base"/>
+   *delete 命令
+   ** 对文件或目录进行删除：
+   *** 删除某个文件：
+      <delte file="/res/image/cat.jpg"/>
+   *** 删除某个目录：
+      <delte dir="/res/image"/>
+   *** 删除所有jar文件或空目录：
+      <delete includeEmptyDirs="true">
+         <fileset dir="." includes="**/*.jar"/>
+      </delete>
+   * mkdir命令
+   ** 创建目录：
+      <mkdir dir="/home/philander/build/classes"/>
+   * move命令
+   ** 移动文件或目录：
+   *** 移动单个文件：
+      <move file="sourcefile" tofile="destfile"/>
+   *** 移动单个文件到另一个目录
+      <move file="sourcefile" todir="movedir"/>
+   *** 移动某个目录到另一个目录
+      <move todir="newdir">
+         <fileset dir="olddir"/>
+      </move>
+   * echo命令
+   ** 输出<echo message="ant message" file="/logs/ant.log" append="true"/>
+   * javac标签节点元素
+   ** 该标签用于编译一个或一组java文件，其属性如下：
+   *** srcdir 表示源程序的目录
+   *** destdir 表示class文件的输出目录。
+   *** include表示被编译的文件模式
+   *** excludes表示被排除的文件模式
+   *** classpath表示所使用的类路径
+   *** debug表示包含的调试信息
+   *** optimeze表示是否使用优化。
+   *** berbose 表示提供详细的输出信息
+   *** fileonerror 表示碰到错误就自动停止
+   **** 示例：
+       <javac srcdir="${src}" destdir="${dest}"/>
+       <!-- 设置JVM内存
+       <javac srcdir="src" fork="true"/>
+       <javac srcdir="src" fork="true" executable="d:\sdk141\bin\jvavc" memoryMaximumSize="128m"/>
+       -->
+   * java标签节点元素
+   ** 该标签用来执行编译生成的.class文件。
+   *** classname 表示将执行的类名
+   *** jar表示包含该类的JAR文件名。
+   *** classpath表示所用的类路径。
+   *** fork表示在一个新的虚拟机中运行该类
+   *** failonerror表示碰到错误就自动停止
+   *** append表示追加或者覆盖默认文件。
+   **** 示例：
+      <java classname="com.hoo.test.HelloWorld" classpath="${hello_jar}"/>
+   * arg数据参数元素
+   **由ant构建文件调用的程序，可以通过<arg>元素向其传递命令行参数，如apply，exec和java任务可接受嵌套<arg>元素，可以为各自的过程调用指定参数
+   *** values 是一个命令参数，如果参数中有空格，但又想将它作为单独一个值，则使用此属性
+   *** file 表示参数的文件名。
+   *** line 表示用空格分割多个参数列表。
+   *** 表示路径 一个作为单命令行变量的path-like的字符串；或作为分割符，Ant会将其转变为特定的平台分割符。
+   *** pathref 引用path的ID
+   *** prefix 前缀
+   *** suffix 后缀
+   **** 示例
+      <arg value="-1 -a"/>
+      <arg line="-1 -a"/>
+      <arg path="/dir;/dir2:\dir3"/>
+      是一个命令行变量，其值在DOS系统上为\dir;\dir2;\dir3；在Unix系统上为/dir:/dir2:/dir3
+   * ervironment类型
+   ** 由Ant构建文件调用的外部命令或程序，<env>元素制定了那些环境变量要传递给正在执行的系统命令
+   *** file表示环境变量值的文件名。
+   *** path表示环境变量的路径
+   *** value 表示环境变量的一个直接变量。
+   *** key 表示环境变量名。
+   注意file path 或value 只能取一个。
+   * filelist 文件集合列表
+   ** filelist是一个支持命名的文件列表的数据类型，包含在一个filelist类型中的文件不一定是存在的文件。
+   *** dir用于计算绝对文件名的目录
+   *** files 是用逗号分割的文件名列表。
+   *** refid 对某处定义的一个<filelist>的引用
+   **** 示例
+      <filelist id="docfiles" dir="${doc.src}" files="foo.xml,bar.xml"/>
+      文件集合 ${doc.src}/foo.xml 和${doc.src}/bar.xml 
+      <filelist refid="docfiles"/>
+      <filelist id="docfiles" dir="${doc.src}">
+         <file name="foo.xml"/>
+	 <file name="bar.xml"/>
+      </filelist>
+   * fileset文件类型
+   ** fileset数据类型定义了一组文件，并通常表示为<fileset>元素
+   *** dir 表示fileset的基目录
+   *** casesensitive的值如果是false，那么匹配文件名是，fileset不区分大小写，其默认值为true
+   *** defaultexcludes 用来确定是否使用默认排除模式，默认是true
+   *** excludes 是用逗号表示需要排除的文件列表。
+   *** excludesfile 表示每行包含一个排除的文件的文件名
+   *** includes 是用逗号分割的，需要包含的文件模式列表
+   *** includesfile 表示每行包含一个文件的文件名
+   **** 示例
+      <fileset id="lib.runtime" dir="${lib.path}/runtime">
+         <include name="**/*.jar"/>
+	 <include name="**/*.so"/>
+	 <include name="**/*.dll"/>
+      </fileset>
+
+      <fileset id="lib.container" dir="${lib.path}/container">
+         <include name="**/*.jar"/>
+      </fileset>
+   * patternset类型
+   ** fileset 是对文件的分组，而patternset是对模式的分组，他们是紧密相关的概念
+   ** <patternset>支持4个属性：includes、exclude、includefile、excludesfiles，这些与fileset相同。
+   ** patternset 还允许嵌套以下元素：include、exclude、includefile和excludefile
+   *** 示例
+      <patternset id="non.test.sources">
+         <include name="**/*.java"/>
+         <!-- 文件名包含Test的排除 -->
+         <exclude name="**/*Test*"/>
+      </patternset>
+      
+      <patternset id="sources">
+         <include name="std/**/*.java"/>
+	 <!-- 判断条件 存在professional就引入 -->
+	 <include name="prof/**/*.java" if="professional"/>
+	 <exclude name="**/*Test*"/>
+      </patternset>
+      <!-- 一组文件 -->
+      <patternset includesfile="some-file"/>
+         <patternset>
+         <includesfile name="some-file"/> 
+      <patternset/>
+      <patternset>
+         <includesfile name="some-file"/> 
+	 <includesfile name="${some-other-file}" if="some-other-file"/> 
+      <patternset/>
+   * filterset 类型
+   ** filterset 定义了一组过滤器，这些过滤器将在文件移动或复制时完成文件的文本替换
+   *** begintoken 表示嵌套过滤去搜索的记号，这是标识其开始的字符串
+   *** endtoken 表示嵌套过滤器所搜索的记号，这是标识其结束的字符串
+   *** id 是过滤器的唯一标识
+   *** refid 是对构建文件中某处定义一个过滤器的引用
+   ****示例
+      <!-- 将目标文件build.dir目录中的version.txt文件内容中的@DATE@替换成TODAY当前日期的值，并把替换后的文件存放在dist.dir目录中 -->
+      <copy file="${build.dir}/version.txt" toFile="${dist.dir}/version.txt">
+         <filterset>
+            <filter token="DTAE" value="${TODAY}"/>
+         </filterset>
+      </copy>
+    
+      <copy file="${build.dir}/version.txt" toFile="${dist.dir}/version.txt">
+         <filterset begintoken="%" endtoken="*">
+            <filter token="DATE" value="${TODAY}"/>
+         </filterset>
+      </copy>
+ 
+      <!-- 使用外部的过滤定义文件 -->
+      <copy toDir="${dist.dir}/docs">
+         <fileset dir="${build.dir}/docs">
+            <include name="**/*.html">
+         </fileset>
+         <filterset begintoken="%" endtoken="*">
+            <!-- 过来文件从外部引入，过来的属性和值配置在dist.properties文件中 --> 
+            <filtersfile file="${user.dir}/dist.properties"/>
+         </filterset>
+      </copy>
+
+      <!-- 使用引用方式，重复利用过滤集 -->
+      <filterset id="myFilterSet" begintoken="%" endtoken="*">
+         <filter token="DATE" value="${TODAY}"/>
+      </filterset>
+      <copy file="${build.dir}/version.txt" toFile="${dist.dir}/version.txt">
+         <filterset refid="myFilterSet"/>
+      </copy>
+   * path类型
+   ** path元素用来表示一个类的路径，不过他还可以用来表示其他的路径。在用作几个属性时，路径中各项用分号或冒号隔开。在构建的时候，此分割符将代替当前平台中所有的路径分割符，其拥有的属性如下。
+   *** location 表示一个文件或目录。Ant在内部将此扩展为一个绝对路径
+   *** refid 是对当前构建文件中某处定义的一个path的引用
+   *** path表示一个文件或路径名的列表
+   **** 示例
+      <path id="buildpath">
+         <fileset refid="lib.runtime"/>
+	 <fileset refid="lib.container"/>
+	 <fileset refid="lib.extras"/>
+      </path>
+   
+      <path id="src.paths">
+         <fileset id="srcs" dir=".">
+            <include name="src/**/*.java"/>
+         </fileset>
+      </path>
+   * ant编译打包、运行工程
+     	<?xml version="1.0" encoding="UTF-8"?>
+	<!-- name是当前工程的名称，default是默认执行的任务，basedir是工作目录（.代表当前根目录） -->
+	<project name="HelloWorld" default="run" basedir=".">
+		<!-- property类似于程序中定义简单的变量 -->
+		<property name="src" value="src"/>
+		<property name="dest" value="classes"/>
+		<property name="hello_jar" value="helloWorld.jar"/>
+		<!-- 
+	
+		target是一个事件、事情、任务， name是当前事情的名称，depends是依赖的上一件或是多件事情
+	
+		如果所依赖的事情没有执行，ant会先运行依赖事情，然后再运行当前事情
+	
+		-->
+		<!-- 初始化 -->
+		<target name="init">
+			<!-- 建立classes目录 -->
+			<mkdir dir="${dest}"/>
+			<mkdir dir="temp"/>
+			<mkdir dir="temp2"/>
+		</target>
+		<!-- 编译 -->
+		<target name="compile" depends="init">
+			<javac srcdir="${src}" destdir="${dest}"/>
+			<!-- 设置jvm内存
+	
+			<javac srcdir="src" fork="true"/> 
+	
+			<javac srcdir="src" fork="true" executable="d:\sdk141\bin\javac" 
+	
+			memoryMaximumSize="128m"/> 
+	
+			-->
+		</target>
+		<!-- 建立jar包 -->
+		<target name="build" depends="compile">
+			<!-- 
+	
+			<jar jarfile="${hello_jar}" basedir="${dest}"/>
+	
+			创建一个名称是package.jar文件
+	
+			<jar destfile="package.jar" basedir="classes"/> 
+	
+			-->
+			<jar destfile="${hello_jar}" basedir="classes">
+				<!-- 向jar包中的main文件中添加内容 -->
+				<manifest>
+					<attribute name="Built-By" value="${user.name}"/>
+					<attribute name="Main-class" value="package.Main"/>
+				</manifest>
+			</jar>
+			<!-- 复制jar文件  todir="复制到目录"-->
+			<copy file="${hello_jar}" tofile="${dest}\temp.jar"/>
+			<copy todir="temp">
+				<!-- 不按照默认方式 defaultexcludes="" -->
+				<fileset dir="src">
+					<include name="**/*.java"/>
+				</fileset>
+			</copy>
+			<copy todir="temp2">
+				<fileset dir="src">
+					<and>
+						<contains text="main"/>
+						<size value="1" when="more"/>
+					</and>
+				</fileset>
+			</copy>
+			<!-- 移动jar文件 -->
+			<move file="${dest}\temp.jar" tofile="temp\move-temp.jar"/>
+			<!-- 创建zip -->
+			<zip basedir="${basedir}\classes" zipfile="temp\output.zip"/>
+			<!-- 创建tgz -->
+			<gzip src="classes\**\*.class" zipfile="output.class.gz"/>
+			<!-- 解压zip -->
+			<unzip src="output.class.gz" dest="extractDir"/>
+			<!--替换input.txt内容中的old为new
+	
+			<replace file="input.txt" token="old" value="new"/>
+	
+			-->
+		</target>
+		<!-- 运行 -->
+		<target name="run" depends="build">
+			<java classname="com.hoo.test.HelloWorld" classpath="${hello_jar}"/>
+		</target>
+		<!-- 清除 -->
+		<target name="clean">
+			<!-- 删除生成的文件 -->
+			<delete dir="${dest}"/>
+			<delete file="${hello_jar}"/>
+		</target>
+		<tstamp>
+			<format property="OFFSET_TIME" pattern="HH:mm:ss" offset="10" unit="minute"/>
+		</tstamp>
+		<!-- 重新运行 -->
+		<target name="rerun" depends="clean,run">
+			<echo message="###${TSTAMP}#${TODAY}#${DSTAMP}###"/>
+			<aunt target="clean"/>
+			<aunt target="run"/>
+		</target>
+	</project>
+
+** DONE 枚举复习下
+   1）普通枚举
+   public enum ColorEnum{
+      red,green,yellow,blue;
+   }
+   2）
+   public enum SeasonEnum{
+      string,summer,autumn,winter;
+      private final statci String position = "test";
+      public static SeasonEnum getSession(){
+         if("test".equals(position))
+	    return spring;
+	 else
+	    return winter;
+      }
+   }
+   3)
+    public enum Gender{
+        //通过括号赋值,而且必须带有一个参构造器和一个属性跟方法，否则编译出错
+        //赋值必须都赋值或都不赋值，不能一部分赋值一部分不赋值；如果不赋值则不能写构造器，赋值编译也出错
+        MAN("MAN"), WOMEN("WOMEN");
+        
+        private final String value;
+
+        //构造器默认也只能是private, 从而保证构造函数只能在内部使用
+        Gender(String value) {
+            this.value = value;
+        }
+        
+        public String getValue() {
+            return value;
+        }
+    }
+   4)
+ public enum OrderState {
+        /** 已取消 */
+        CANCEL {public String getName(){return "已取消";}},
+        /** 待审核 */
+        WAITCONFIRM {public String getName(){return "待审核";}},
+        /** 等待付款 */
+        WAITPAYMENT {public String getName(){return "等待付款";}},
+        /** 正在配货 */
+        ADMEASUREPRODUCT {public String getName(){return "正在配货";}},
+        /** 等待发货 */
+        WAITDELIVER {public String getName(){return "等待发货";}},
+        /** 已发货 */
+        DELIVERED {public String getName(){return "已发货";}},
+        /** 已收货 */
+        RECEIVED {public String getName(){return "已收货";}};
+        
+        public abstract String getName();
+    }
