@@ -1,0 +1,285 @@
+* TODO 工资卡的事问问
+* DONE Python多线程
+  * 创建线程   
+    1. 函数式：调用thread模块中的start_new_thread()函数来产生新线程。如下例：
+	import time
+	import thread
+	def timer(no,interval):
+	   cnt = 0
+	   while cnt<10:
+	      print("Thread:(%d) Time:%s\n" %(no,time.ctime()))
+	      time.sleep(interval)
+	      cnt+=1
+	   thread.exit_thread()
+
+	def test():
+	   thread.start_new_thread(timer,(1,1))
+	   thread.start_new_thread(timer,(2,2))
+
+	if __name__=="__main__":
+	   test()
+
+	 1. 上面的例子定义了一个线程函数timer，它打印出10条时间记录后退出，每次的答应间隔由interval参数决定。thread.start_new_thread(funciton,args[,kwargs])的第一个参数是线程函数(本例中的timer方法)，第二个参数是传递给线程函数的参数，他必须是tuple类型，kwargs是可选参数。
+	 2. 线程结束可以等待线程自然结束，也可以在线程函数中调用thread.exit()或thread.exit_thread()方法。
+    2. 创建threading.Thread的子类来包装一个线程对象，如下例：
+	import threading
+	import time
+	class timer(therding.Thread):
+	   def __init__(self,num,interval):
+	      threading.Thread.__init__(self)
+	      self.thread_num=num
+	      self.thrad_stop=Flase
+	      self.interval=interval
+
+	   def run(self):
+	      while not self.thread_stop:
+		 print('Tread Object(%d),Time:%s\n'%(self.thread_num,time.ctime()))
+		 time.sleep(self.interval)
+
+	   def stop(self):
+	      self.thread_stop = True
+
+	def test():
+	   thread1 = timer(1,1)
+	   thread2 = timer(2,2)
+	   thread1.start()
+	   thread2.start()
+	   time.sleep(10)
+	   thread1.stop()
+	   thread2.stop()
+	   return
+
+	if __name__ = "__main__":
+	   test()
+
+	1) 在自己的线程类的__init__里调用threading.Thread.__init__(self,name=threadname)
+	   Threadname为线程的名字
+	2) run(),通常重写，编写代码实现需要做的功能
+	3) getName() 获取线程对象名称
+	4) setName() 设置线程对象名称
+	5) start() 启动线程
+	6) join([timeout]) 等待另一个线程结束后再运行
+	7) setDaemon(bool) 这是子线程是否随主线程一起结束，必须在start()之前调用。默认为False
+	8) isAlive()检查线程是否在运行中
+  * 同步
+    1. 简单的同步
+      最简单的同步机制就是“锁”。锁对象有threading.RLock类创建。线程可以使用锁的acquire()方法获得锁，这样锁就静茹了“locked”状态。每次只有一个线程可以获得锁。如果当另一个线程试图获得这个锁的时候，就会被系统变为“blocked”状态知道那个拥有说的线程调用锁的release()方法来释放锁，这样锁就会进入unlocked状态。blocked状态的线程就会收到一个通知，并且有权获取锁。如果多个线程都处在blocked状态。那么这些线程将会竞争锁
+      Python中thread模块和Lock对象是Python提供的低级线程控制工具，如下例
+
+      import thread
+      import time
+      mylock = thread.allocate_lock()
+      num = 0
+
+      def add_num(name):
+	 global num
+	 while True:
+	    mylock.acquire()
+	    print('Thread %s locked! num=%s' %(name,str(num)))
+	    if num >= 5:
+	       print('Thread %s released! num=%s' %(name,str(num)))
+	       mylock.release()
+	       thread.exit_thread()
+	    num+=1
+	    print('Thread %s released! num=%s'%(name,str(num)))
+	    mylock.release()
+
+      def test():
+	 thread.start_new_thread(add_num,('A',))
+	 thread.start_new_thread(add_num,('B',))
+
+      def __name__=='__main__':
+	 test()
+
+	 
+    2. 高级线程控制库
+      Python 在thread的基础上还提供了一个高级的线程控制库，就是之前提到过的threading。Python的threading module是在建立在thread module基础之上的一个module，在threading module中，暴露了许多thread module中的属性。在thread module中，python提供了用户级的线程同步工具“Lock”对象。而在threading module中，python又提供了Lock对象的变种: RLock对象。RLock对象内部维护着一个Lock对象，它是一种可重入的对象。对于Lock对象而言，如果一个线程连续两次进行acquire操作，那么由于第一次acquire之后没有release，第二次acquire将挂起线程。这会导致Lock对象永远不会release，使得线程死锁。RLock对象允许一个线程多次对其进行acquire操作，因为在其内部通过一个counter变量维护着线程acquire的次数。而且每一次的acquire操作必须有一个release操作与之对应，在所有的release操作完成之后，别的线程才能申请该RLock对象。
+      代码如下所示：
+
+      import threading
+      mylock = threading.RLock()
+      num=0
+
+      class myThread(threading.Thread):
+	 def __init__(self,name):
+	    threading.Thread.__init__(self)
+	    self.t_name=name
+
+	 def run(self):
+	    global num
+	    while True:
+	       mylock.acquire()
+	       print("\nThread(%s) locked,Number:%d"%(self.t_name,num))
+	       if num>4:
+		  mylock.release()
+		  print('\nThread(%s) released,Number:%d'%(self.t_name,num))
+		  bread
+	       num+=1
+	       print('\nThread(%s) released,Number:%d'%(self.t_name,num))
+	       mylock.release()
+
+       def test()
+	  thread1 = myThread('A')
+	  thread2 = myThread('B')
+	  thread1.start()
+	  thread2.start()
+
+       if __name__=='__main__':
+	  test()
+
+
+
+
+  * 生产者与消费者问题
+    1. 条件变量
+       
+       import threading
+       import time
+       
+       class Producer(threading.Thread):
+          def __init__(self,t_name):
+	     threading.Thread.__init__(self,t_name)
+
+	  def run(self):
+	     global x
+	     con.acquire()
+	     if x > 0:
+	        con.wait()
+	     else:
+	        for i in range(5):
+		   x+=1
+		   print("priducing..."+str(x))
+		con,notify()
+	     print(x)
+	     conn.release()
+	 
+	class Consumer(threading.Thread):
+	   def __init__(self,t_name):
+	      threading.Thread.__init__(self,t_name)
+	   
+	   def run(self):
+	      global x
+	      con.acquire()
+	      if x == 0:
+	         pritn("consumer wait1")
+		 con.wait()
+	      else:
+	         for i in range(5):
+		    x-=1
+		    print('consuming...'+str(x))
+		 con.notify()
+	      print(x)
+	      conn.release()
+
+	 con = threading.Condition()
+	 x=0
+	 print('start consumer')
+	 c = Consumer('consumer')
+	 print('start producer')
+	 p = Producer('producer')
+
+	 p.start()
+	 c.start()
+
+	 p.join()
+	 c.join()
+	 print(x)
+
+	    - 上面的例子中，在初始状态下，Consumer处于wait状态，Producer连续生产（对x执行增1操作）5次后，notify正在等待的Consumer。Consumer被唤醒开始消费（对x执行减1操作） 
+    2. 同步队列
+       Python中的Queue对象也提供了对线程同步的支持。使用Queue对象可以实现多个生产者和多个消费者形成的FIFO的队列。生产者将数据依次存入队列，消费者依次从队列中取出数据。
+       from Queue import Queue
+       import random
+       import threading
+       import time
+
+       class producer(threading.Thread):
+          def __init__(self,t_name,queue):
+	     threading.Thread.__init__(self,name=t_name)
+	     self.data = queue
+	  
+	  def run(self):
+	     for i in range(5):
+	        print("%s:%s is producing %d to the queue"%(time.ctime(),self.getName(),i))
+		self.date.put(i)
+		time.sleep(random.randrange(10)/5)
+		
+	  print("%s:%s finished!"%(time.ctime(),self.getName()))
+
+       class Consumer(threading.Thread):
+          def __init__(self,t_name,queue):
+	     threading.Thread.__init__(self,name=t_name)
+	     self.date = queue
+	     
+	  def run(self):
+	     for i in ruange(5):
+	        val = self.date.get()
+		print("%s:%s is consuming..%d in the queue is consumed!" %(time.ctime(),self.getName(),val))
+		time.sleep(random.randrange(10))
+	     print("%s: %s finished!" %(time.ctime(), self.getName()))
+
+       def main():
+          queue = Queue*(
+	  producer = Producer('Pro.',queue)
+	  consumer = Consumer('Con.',queue)
+
+	  producer.start()
+	  consumer.start()
+	  
+	  producer.join()
+	  consumer.join()
+
+	  print('All threads terminate')
+	  
+       if __name__ == '__main__':
+          main()
+
+       - 在上面的例子中，Producer在随机的时间内生产一个“产品”，放入队列中。Consumer发现队列中有了“产品”，就去消费它。本例中，由于Producer生产的速度快于Consumer消费的速度，所以往往Producer生产好几个“产品”后，Consumer才消费一个产品。Queue模块实现了一个支持多producer和多consumer的FIFO队列。当共享信息需要安全的在多线程之间交换时，Queue非常有用。Queue的默认长度是无限的，但是可以设置其构造函数的maxsize参数来设定其长度。Queue的put方法在队尾插入，该方法的原型是：put( item[, block[, timeout]])如果可选参数block为true并且timeout为None（缺省值），线程被block，直到队列空出一个数据单元。如果timeout大于0，在timeout的时间内，仍然没有可用的数据单元，Full exception被抛出。反之，如果block参数为false（忽略timeout参数），item被立即加入到空闲数据单元中，如果没有空闲数据单元，Full exception被抛出。Queue的get方法是从队首取数据，其参数和put方法一样。如果block参数为true且timeout为None（缺省值），线程被block，直到队列中有数据。如果timeout大于0，在timeout时间内，仍然没有可取数据，Empty exception被抛出。反之，如果block参数为false（忽略timeout参数），队列中的数据被立即取出。如果此时没有可取数据，Empty exception也会被抛出。
+	 
+* TODO Python数据类型
+  * 目录
+    1. 字符串
+       + 如何在Python中使用字符串
+           1) 使用单引号
+	      用单引号括起来表示字符串，例如：
+	      str = 'this is string'
+	      print(str)
+	   2) 使用双引号
+	      双引号与单引号相同，例如：
+	      str = "this is string"
+	      print(str)
+    2. 布尔类型
+       bool = False
+       bool = True
+
+    3. 整数
+       int = 20
+       
+    4. 浮点数
+       float = 2.3
+
+    5. 数字
+       包括整数、浮点数
+       + 删除数字对象引用，例如：
+	 a = 1
+	 b = 2
+	 c = 3
+	 del a
+	 del b,c
+       + 数字类型的转换
+	 int(x[,base]) 将x转换为一个整数
+	 float(x) 将x转换为一个浮点数
+	 complex(real [,imag]) 创建一个复数
+	 str(x) 将对象转换为字符串
+	 repr(x) 将对象x转换为表达式字符串
+	 eval(str) 用来计算在字符串中的有效的Python表达式，并返回一个对象
+	 tuple(s) 将序列s 转换为一个元组
+	 list(s) 将序列s转换为一个列表
+	 chr(x) 将一个整数转换为一个字符
+	 unichr(x) 将一个整数转换为Unicode字符
+	 ord(x) 将一个字符转换为它的整数值
+	 hex(x) 将
+    6. 列表
+    7. 元组
+    8. 字典
+    9. 日期
