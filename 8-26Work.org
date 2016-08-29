@@ -1,0 +1,205 @@
+* DONE 更换emacs配色
+  不错不错！这次搞定了。eamcs还是得慢慢来学习的。
+  #+begin_src java
+  	public void test(){
+  		system.out.print("abc");
+	}
+  #+end_src
+* DONE 怎么让emacs代码高亮
+  貌似还是没有什么解决办法
+  
+* DONE spring 源码开始
+  开始阅读Spring代码
+  + Spring4.0 以上编译需要使用JDK1.8
+  + 下载使用Gradle来编译至eclipse
+  + Unrecognized VM option 'MaxMetaspaceSize=1024m'
+	这个错误是因为没有使用1.8版本的JDK
+  * MD 必须保证是JAVA_HOME对应的是1.8.而不是你丫的环境里面是1.8
+	#+begin_example git说明
+	[Git][] and [JDK 8 update 20 or later][JDK8 build]
+	Be sure that your `JAVA_HOME` environment variable points to the `jdk1.8.0` folder
+	extracted from the JDK download.
+	#+end_example
+	说明在此
+	
+* DONE spring jdbc
+  * 概述
+	在Spring JDBC 模块中，所有类可以分为四个单独独立的包：
+	+ core
+	  核心包，他包含了JDBC的核心功能。此包中还有很多重要的类，包括：JDBCTemplate类、SimpleJdbcInsert类、SimpleJdbcCall类以及NamedParameterJdbcTemplate类
+	+ datasource
+	  即数据源包，访问数据源的实用工具类。它有多种数据源的实现，可以在J2EE容器外测试JDBC代码
+	+ object
+	  即对象包，以面向对象的方式访问数据库。他允许执行查询并返回结果作为业务对象。它可以在数据表的列和业务对象的属性之间映射查询结果。
+	+ support
+	  即支持包，是core包和object包的支持类。例如提供了异常转换功能的SQLException类
+  * 配置
+	MySQ为例L数据库配置：
+	+ java 代码
+ 	  #+begin_src java
+	  @Configuration
+	  @ComponentScan("com.yang.myalbumjdbc")
+	  public class SpringJdbcConfig(){
+	   	  @Bean
+		  public DataSource mysqlDataSource(){
+			  DriverManagerDataSource dataSource = new DriverManagerDataSource();
+			  dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+			  dataSource.setUrl("jdbc:mysql://localhost:3306/springjdbc");
+			  dataSource.setUsername("root");
+			  dataSource.setPassword("123");
+			  return dataSource;
+		  }
+	  }
+	  #+end_src
+	+ XML
+	  #+begin_src XML
+	  <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"  destroy-method="close">  
+      	<property name="driverClassName" value="com.mysql.jdbc.Driver"/>  
+        <property name="url" value="jdbc:mysql://localhost:3306/springjdbc"/>  
+        <property name="username" value="guest_user"/>  
+        <property name="password" value="guest_password"/>  
+	  </bean>  
+	  #+end_src
+  * JdbcTemplate的使用和运行查询
+	1. 基本的查询
+	   JDBC模板是Spring JDBC模块中主要的API，它提供了常见的数据库访问功能：
+	   + 查询功能
+	     #+begin_src java
+	     int result = jdbcTemplate.queryForObject("select count(*) from employee",Integer.class);
+	     #+end_src
+	   + 插入功能
+		 #+begin_src java
+		 public int addEmplyee(int id){
+		 	return jebcTemplate.update("INSERT INTO EMPLOYEE VALUES(?,?,?,?,)",5,"Bill","Gates","USA");
+		 }
+		 #+end_src
+	   
+	   注意提供参数的标准语法——使用"?"字符
+	2. 查询与命名参数
+	   要获得命名参数的支持，我们需要使用Spring JDBC提供的其它JDBC模板——NamedParameterJdbcTemplate。
+	   此类封装了JbdcTemplate，并提供了使用“？”来替代指定参数的传统语法。它使用传递的参数来替换占位符“？”，以执行传参的查询：
+	   #+begin_src java
+	   SqlParameterSource namedParameters = new MapSqlParameterSource().addValue("id", 1);  
+       return namedParameterJdbcTemplate.queryForObject("SELECT FIRST_NAME FROM EMPLOYEE WHERE ID = :id", namedParameters, String.class);  
+	   #+end_src
+	   请注意，我们使用的是MapSqlParameterSource来提供值的命名参数。
+	   下面是使用bean类的属性来确定命名参数简单例子：
+	   #+begin_src java
+	   Employee employee = new Employee();
+	   employee.setFirstName("James");
+	   String SELECT_BY_ID = "SELECT COUNT(*) FROM EMPLOYEE FIRST_NAME = :firstName";
+	   SqlParamaeterSource namedParameters = new BeanPropertySqlParameterSource(employee);
+	   reutrn namedParameterJdbcTemplate.queryForObject(SELECT_BY_ID,namedParameters,Integer.class);
+	   #+end_src
+	3. 把查询结果映射到Java对象
+	   把查询结果映射到Java对象——通过实现RowMapper接口
+	   例如，对查询返回的每一行结果，Spring会使用该行的映射来填充Java Bean：
+	   #+begin_src java
+	    public class EmployeeRowMapper implements RowMapper<Employee>{
+			@Override
+			public Employee mapRow(ResultSet rs,int rowNum) throws SQLException{
+				Employee employee = new Employee();
+				 employee.setId(rs.getInt("ID"));  
+				 employee.setFirstName(rs.getString("FIRST_NAME"));  
+				 employee.setLastName(rs.getString("LAST_NAME"));  
+				 employee.setAddress(rs.getString("ADDRESS"));  
+				 return employee;  
+			}
+	    }
+	   #+end_src
+	   现在，我们传递行映射器给查询API，并得到完全填充好的Java对象：
+	   #+begin_src java
+	    String query = "SELECT * FROM EMPLYEE WHERE ID = ?";
+		List<Employee> employee = jdbcTemplate.queryForObject(query,new Object[] {id},new EmployeeRowMapper());
+	   #+end_src
+	4. 异常转换
+	   Spring提供了自己的开箱即用的数据异常分层——DataAccessException作为根异常，它负责转换所有的原始异常。
+	   开发者无需处理底层的持久化异常，因为Spring JDBC模块已经在DataAccessExcption类及子类中封装了底层的异常。
+	   这样可以使处理机制独立于当前使用的具体数据库。
+	   除了默认的SQLErrorCodeSQLExceptionTranslator类，开发者也可以提供自己的SQLExceptionTranslator实现。
+	   下面是一个自定义的SQLExceptionTranslatoer实现的简单雷子，当出现完整性约束错误时自定义错误消息：
+	   #+begin_src java
+	    public class CustomSQLErrorCodeTranslator extends SQLErrorCodeExceptionTranslator {
+			@Override
+			protected DataAccessException customTranslate(String task,String sql,SQLException sqlException){
+				if(sqlException.getErrorCode()==-104){
+					return new DuplicateKeyException(""Custom Exception translator - Integrity constraint violation.", sqlException);
+				}
+			}
+		}
+	   #+end_src
+	   要使用自定义的异常转换器，我们需要把它传递给JdbcTemplate——通过callingsetExceptionTranslator()方法：
+	   #+begin_src java
+	    CustomSQLErrorCodeTranslator customSQLErrorCodeTranslator = new CustomSQLErrorCodeTranslator();
+		jebcTemplate.setExceptionTranslator(customSQLErrorCodeTranslato);
+	   
+	   #+end_src
+	5. 使用SimpleJdbc实现JDBC操作
+	   SimpleJdbc类提供简单的方法来配置和执行SQL语句。这些类使用数据库的元数据来构建基本查询，SimpleJdbcInsert类和SimpleJdbcCall类提供了更简单的方式来执行插入和存储过程的调用。
+	   + SimpleJdbcInsert类
+		 基于SimpleJdbcInsert类配置产生的Insert语句。 简单插入语句。
+		 #+begin_src java
+		  SimpleJdbcInsert simpleJdbcInsert = new SimpleJdbcInsert(dataSource).withTableName("EMPLOYEE");
+		 #+end_src
+		 现在，让我们提供列名和值，并执行操作：
+		 #+begin_src java
+		  public int addEmplyee(Emplyee emp){
+		  	Map<String,Object> parameters = new HashMap<String,Object>();
+			   parameters.put("ID", emp.getId());  
+			   parameters.put("FIRST_NAME", emp.getFirstName());  
+			   parameters.put("LAST_NAME", emp.getLastName());  
+			   parameters.put("ADDRESS", emp.getAddress());  
+			   return simpleJdbcInsert.execute(parameters); 
+		  }
+		 #+end_src
+	   + 用SimpleJdbcCall调用存储过程
+		 #+begin_src java
+		  SimpleJdbcCall simpleJdbcCall = new SimpleJebcCall(dataSource).withProceDureName("READ_EMPLOYEE");
+		  public Employee getEmployeeUsingSimpleJdbcCall(int id) {  
+		  	SqlParameterSource in = new MapSqlParameterSource().addValue("in_id", id);  
+			Map<String,Object> out = simpleJdbcCall.execute(in);
+			Employee emp = new Employee();
+			emp.setFirstName((String) out.get("FIRST_NAME"));  
+			emp.setLastName((String) out.get("LAST_NAME"));  
+  			return emp;  
+		  }
+		 
+		 #+end_src
+		  
+		 
+
+  
+
+	6. 批处理操作
+	   另一个简单的用例——把多种操作合在一起实现批处理
+	   + 使用JdbcTemplate执行基本的批处理操作
+		 使用JdbcTemplate类，通过batchUpdate() API来执行基本的批处理操作：
+		 注意BatchPreparedStatementSetter实现是很有趣的。
+		 #+begin_src java
+		     public int[] batchUpdateUsingJdbcTemplate(List<Employee> employees) {  
+			 	return jdbcTemplate.batchUpdate("INSERT INTO EMPLOYEE VALUES (?, ?, ?, ?)", new BatchPreparedStatementSetter() {  
+                	@Override  
+					public void setValues(PreparedStatement ps, int i) throws SQLException {  
+                    	ps.setInt(1, employees.get(i).getId());  
+						ps.setString(2, employees.get(i).getFirstName());  
+						ps.setString(3, employees.get(i).getLastName());  
+						ps.setString(4, employees.get(i).getAddress();  
+					}  
+                	@Override  
+					public int getBatchSize() {  
+                    	return 50;  
+					}  
+				});  
+			}  
+
+		  #+end_src
+       + 使用NamedParameterJdbcTemplate执行批处理操作
+	 	 对于批处理操作，还可以选择使用NamedParameterJdbcTemplate的batchUpdate() API来执行。
+		 此API比先前的更简单——无需实现任何额外的接口来设置参数，因为它有一个内部的预准备语句的setter来传递预设的参数值。
+		 参数值可以通过batchUpdate()方法传递给SqlParameterSource的数组。
+		 #+begin_src java
+		     SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(employees.toArray());  
+			 int[] updateCounts = namedParameterJdbcTemplate.batchUpdate("INSERT INTO EMPLOYEE VALUES (:id, :firstName, :lastName, :address)", batch);  
+			 return updateCounts;  
+		  #+end_src
+
