@@ -52,5 +52,13 @@
 	  ThreadPoolExecutor.DiscardOldestPolicy：丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
 	  ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务 
 	  #+end_example
+	  
+	  runState表示当前线程池的状态，它是一个volatile变量用来保证线程之间的可见性
+	  下面几个static final变量表示runState可能的几个取值
+	  当创建线程池后，初始时，线程池处于RUNNING状态
+	  如果调用了shutdown()方法，线程池处于SHUTDOWN状态，此时线程池不能够接受新的任务，他会等待所有任务执行完毕
+	  如果调用了shutdownnow()方法，则线程池处于STOP状态，此时线程池不能接受新任务，并且会尝试终止正在执行的任务。
+	  当线程池处于SHUTDOWN或STOP状态，并且所有工作线程已经销毁，任务缓存队列已经清空或执行结束后，线程池被设置为TERMINATED状态。
+
 
 	  
