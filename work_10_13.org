@@ -1,0 +1,264 @@
+* Resource接口
+  Resource接口并不是一个根接口，它集成了一个简单的父接口InputStreamSource,这个接口只有一个方法，用于返回一个输入流
+  #+begin_src java
+  public abstract class AbstractResource implements Resource{
+  	public boolean exists(){ //判断文件是否存在，若判断过程中产生异常（因为会调用SecurityManage来判断），对关闭对应的流。
+		try{
+			return getFile().exists();
+		}
+		catch (IOException ex){
+			try{
+				InputStream is = getInputStream();//getInputStream()方法会被子类重写
+				is.close();
+				return true;
+			}
+			catch(Throwable isEx){
+				return false;
+			}
+		}
+	}
+
+	public boolean is readable(){ //直接返回true,可读
+		return true;
+	}
+	
+	public boolean isOpen(){ //直接返回flase 未被打开
+		return false;
+	}
+
+	public URL getURL() throws IOException{	//留给子类重写
+		throw new FileNotFoundException(getDescription()+"cannot be resolved to URL");
+	}
+
+	// 这个资源内容长度实际就是资源的字节长度，通过全部读取一遍来判断。这个方法调用起来很占资源啊！
+    public long contentLength() throws IOException {   
+        InputStream is = this.getInputStream();
+        Assert.state(is != null, "resource input stream must not be null");   //断言
+        try {
+            long size = 0;
+            byte[] buf = new byte[255];
+            int read;
+            while((read = is.read(buf)) != -1) {
+                size += read;
+            }
+            return size;
+        }
+        finally {
+            try {
+                is.close();
+            }
+            catch (IOException ex) {
+            }
+        }
+    }
+
+    public long lastModified() throws IOException {    // 返回资源的最后修改时间
+        long lastModified = getFileForLastModifiedCheck().lastModified();
+        if (lastModified == 0L) {
+            throw new FileNotFoundException(getDescription() +
+                    " cannot be resolved in the file system for resolving its last-modified timestamp");
+        }
+        return lastModified;
+    }
+
+    // 这是Resource接口所没有的方法，注释的意思是“返回文件，给时间戳检查”，要求子类重写...
+    protected File getFileForLastModifiedCheck() throws IOException {
+        return getFile();
+    }
+
+    public Resource createRelative(String relativePath) throws IOException {   //  留给子类重写
+        throw new FileNotFoundException("Cannot create a relative resource for " + getDescription());
+    }
+
+    public String getFilename() {  //  默认返回空（假设资源没有文件名），除非子类重写
+        return null;
+    }
+    @Override
+    public String toString() {     //  toString返回文件描述
+        return getDescription();
+    }
+
+    @Override
+    public boolean equals(Object obj) {    //  equals比较的就是2个资源描述是否一样
+        return (obj == this ||
+            (obj instanceof Resource && ((Resource) obj).getDescription().equals(getDescription())));
+    }
+
+    @Override
+    public int hashCode() {    //  返回资源描述的HashCode
+        return getDescription().hashCode();   
+    }
+  }
+  #+end_src
+  结论：
+  　　1. 增加了一个方法，protected File getFileForLastModifiedCheck() throws IOException，要求子类实现，如果子类未实现，那么直接返回资源文件。这个方法的具体作用，后面再看实现类。
+  　　2. 方法 contentLength() ，是一个很比较重量级的方法，它通过将资源全部读取一遍来判断资源的字节数。255字节的缓冲数组来读取。子类一般会重写。（调整一下缓冲数组的大小？）
+  　　3. getDescription() 是这个抽象类唯一没有实现的接口方法，留给子类去实现，资源文件默认的equals()、hashCode() 都通过这个来判断。
+  　　4. InputStreamSource这个祖先接口的唯一方法 getInputStream()也没有被实现，留给子类。
+* Resource的子接口ContextResource和WritableResource
+  这两个接口继承于Resource，拥有Resource的全部方法。其中，ContextREsource接口增加了一个方法：
+  	String getPathWithinContext(); //返回上下文的路径
+  这个方法使它的实现类有了返回当前上下文路径的能力。
+  *  WritableResource接口增加了2个方法：
+  	 boolean isWritable();
+	 OutputStream getOutputStream() throws IOException; //返回资源的写入流
+	 这个方法使它的实现类拥有了写资源的能力
+
+* 重要的抽象类AbstractFileResolvingResource
+  这个抽象类集成了AbstractFileResolvingResource,重写了AbstractResource的大部分方法。
+
+  #+begin_src java
+  public abstract class AbstractFileResolvingResource extends AbstractResource {
+
+    @Override
+    public File getFile() throws IOException { //  通过资源的URL得到资源本身，是文件就返回文件，否则返回描述
+        URL url = getURL();
+        if (url.getProtocol().startsWith(ResourceUtils.URL_PROTOCOL_VFS)) {
+            return VfsResourceDelegate.getResource(url).getFile();
+        }
+        return ResourceUtils.getFile(url, getDescription());
+    }
+
+    @Override
+    protected File getFileForLastModifiedCheck() throws IOException {  //从<压缩文件地址>中获取文件
+        URL url = getURL();
+        if (ResourceUtils.isJarURL(url)) {
+            URL actualUrl = ResourceUtils.extractJarFileURL(url);
+            if (actualUrl.getProtocol().startsWith(ResourceUtils.URL_PROTOCOL_VFS)) {
+                return VfsResourceDelegate.getResource(actualUrl).getFile();
+            }
+            return ResourceUtils.getFile(actualUrl, "Jar URL");
+        }
+        else {
+            return getFile();
+        }
+    }
+
+    protected File getFile(URI uri) throws IOException {   //  通过资源uri获取文件
+        if (uri.getScheme().startsWith(ResourceUtils.URL_PROTOCOL_VFS)) {
+            return VfsResourceDelegate.getResource(uri).getFile();
+        }
+        return ResourceUtils.getFile(uri, getDescription());
+    }
+
+
+    @Override
+    public boolean exists() {  //判断资源是否存在，如果是文件Url,直接获取文件判断，否则，建立连接来判断。
+        try {
+            URL url = getURL();
+            if (ResourceUtils.isFileURL(url)) {
+                // Proceed with file system resolution...
+                return getFile().exists();
+            }
+            else {
+                // Try a URL connection content-length header...
+                URLConnection con = url.openConnection();
+                ResourceUtils.useCachesIfNecessary(con);
+                HttpURLConnection httpCon =
+                        (con instanceof HttpURLConnection ? (HttpURLConnection) con : null);
+                if (httpCon != null) {
+                    httpCon.setRequestMethod("HEAD");
+                    int code = httpCon.getResponseCode();
+                    if (code == HttpURLConnection.HTTP_OK) {
+                        return true;
+                    }
+                    else if (code == HttpURLConnection.HTTP_NOT_FOUND) {
+                        return false;
+                    }
+                }
+                if (con.getContentLength() >= 0) {
+                    return true;
+                }
+                if (httpCon != null) {
+                    // no HTTP OK status, and no content-length header: give up
+                    httpCon.disconnect();
+                    return false;
+                }
+                else {
+                    // Fall back to stream existence: can we open the stream?
+                    InputStream is = getInputStream();
+                    is.close();
+                    return true;
+                }
+            }
+        }
+        catch (IOException ex) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean isReadable() {  //  是否可读
+        try {
+            URL url = getURL();
+            if (ResourceUtils.isFileURL(url)) {
+                // Proceed with file system resolution...
+                File file = getFile();
+                return (file.canRead() && !file.isDirectory());
+            }
+            else {
+                return true;
+            }
+        }
+        catch (IOException ex) {
+            return false;
+        }
+    }
+
+    @Override
+    public long contentLength() throws IOException {
+        URL url = getURL();
+        if (ResourceUtils.isFileURL(url)) {
+            // Proceed with file system resolution...
+            return getFile().length();
+        }
+        else {
+            // Try a URL connection content-length header...
+            URLConnection con = url.openConnection();
+            ResourceUtils.useCachesIfNecessary(con);
+            if (con instanceof HttpURLConnection) {
+                ((HttpURLConnection) con).setRequestMethod("HEAD");
+            }
+            return con.getContentLength();
+        }
+    }
+
+    @Override
+    public long lastModified() throws IOException {
+        URL url = getURL();
+        if (ResourceUtils.isFileURL(url) || ResourceUtils.isJarURL(url)) {
+            // Proceed with file system resolution...
+            return super.lastModified();
+        }
+        else {
+            // Try a URL connection last-modified header...
+            URLConnection con = url.openConnection();
+            ResourceUtils.useCachesIfNecessary(con);
+            if (con instanceof HttpURLConnection) {
+                ((HttpURLConnection) con).setRequestMethod("HEAD");
+            }
+            return con.getLastModified();
+        }
+    }
+
+
+    /**
+     * Inner delegate class, avoiding a hard JBoss VFS API dependency at runtime.
+     */
+    private static class VfsResourceDelegate {
+
+        public static Resource getResource(URL url) throws IOException {
+            return new VfsResource(VfsUtils.getRoot(url));
+        }
+
+        public static Resource getResource(URI uri) throws IOException {
+            return new VfsResource(VfsUtils.getRoot(uri));
+        }
+    }
+
+  }
+  
+  #+end_src
+  这个抽象类的子类都需要重写继承自AbstractResource的getURL()方法。因为绝大多数方法都依赖这个方法，进行资源在url上的操作。
+
+  所以在查看资源情况的时候，需要根据url建立连接来查看。
